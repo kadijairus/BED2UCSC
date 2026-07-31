@@ -1,3 +1,20 @@
+[project]
+name = "BED2UCSC"
+version = "1.0.1"
+description = "Imports BED files to UCSC Genome Browser"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "customtkinter>=5.2.2",
+    "playwright>=1.61.0",
+    "requests>=2.34.2",
+]
+
+[dependency-groups]
+dev = [
+    "pyinstaller>=6.20.0",
+]
+
 [tool.black]
 line-length = 88
 target-version = ['py36', 'py37', 'py38']

@@ -29,7 +29,7 @@ A tool to upload custom BED-files as UCSC Genome Browser Custom Tracks
 
 ## Features
 
-- TODO: add features
+- Adds single BED file to UCSC Genome Browser
 
 ## How to Use
 
