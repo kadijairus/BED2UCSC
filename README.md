@@ -31,7 +31,7 @@ Add a bookmark to your Chrome browser:
 Name: Upload BED
 URL:
 ```sh
-javascript:(async()=>{try{let r=await fetch('http://127.0.0.1:8585/data');if(!r.ok)throw new Error('Local server not running');let txt=await r.text();let a=document.querySelector('textarea[name="hgct_customText"]');if(a){a.value=txt;let f=a.closest('form');if(f){let hidden=document.createElement('input');hidden.type='hidden';hidden.name='hgct_doSubmit';hidden.value='Submit';f.appendChild(hidden);f.submit();}}else{alert("Navigate to the UCSC Custom Track page first.");}}catch(e){alert("Error fetching local BED data: "+e.message);}})();
+javascript:(async()=>{try{let r=await fetch('http://127.0.0.1:8585/data');if(!r.ok)throw new Error('Local server offline');let txt=await r.text();let a=document.querySelector('textarea[name="hgct_customText"]');if(a){a.value=txt;let f=a.closest('form');if(f){let existingHgsid=new URLSearchParams(window.location.search).get('hgsid')||(f.querySelector('input[name="hgsid"]')?f.querySelector('input[name="hgsid"]').value:'');if(existingHgsid&&!f.querySelector('input[name="hgsid"]')){let h=document.createElement('input');h.type='hidden';h.name='hgsid';h.value=existingHgsid;f.appendChild(h);}let hidden=document.createElement('input');hidden.type='hidden';hidden.name='hgct_doSubmit';hidden.value='Submit';f.appendChild(hidden);f.submit();}}else{alert("Navigate to UCSC Custom Tracks page first.");}}catch(e){alert("Error: "+e.message);}})();
 ```
 
 ## Development

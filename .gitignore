@@ -440,4 +440,7 @@ $RECYCLE.BIN/
 # Windows shortcuts
 *.lnk
 
+# Data
+.bed
+
 # End of https://www.toptal.com/developers/gitignore/api/python,macos,windows,linux,visualstudiocode,vim,sublimetext,flask,node
