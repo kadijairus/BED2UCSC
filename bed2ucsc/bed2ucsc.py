@@ -1,5 +1,6 @@
 import html
 import os
+import re
 import sys
 import threading
 import webbrowser
@@ -16,29 +17,76 @@ def get_exe_directory():
     return os.path.dirname(os.path.abspath(__file__))
 
 
+def sanitize_track_name(raw_name):
+    """Replaces spaces and invalid characters with underscores for UCSC compatibility."""
+    clean = re.sub(r"[^a-zA-Z0-9_.-]", "_", raw_name)
+    return clean or "Track"
+
+
+def process_bed_file(file_path, file_name):
+    """Cleans and formats a single BED file for multi-track submission."""
+    try:
+        with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+            raw_text = f.read()
+    except Exception as e:
+        print(f"⚠️ Could not read {file_name}: {e}")
+        return ""
+
+    # 1. Convert Windows CRLF (\r\n) to Unix LF (\n)
+    lines = raw_text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+
+    cleaned_lines = []
+    has_track_header = False
+
+    for line in lines:
+        line_str = line.strip()
+
+        # Skip empty lines and browser configuration lines
+        if not line_str or line_str.startswith("browser "):
+            continue
+
+        # Check if line is an existing track header
+        if line_str.startswith("track "):
+            has_track_header = True
+            cleaned_lines.append(line_str)
+        # Skip comment lines
+        elif line_str.startswith("#"):
+            continue
+        else:
+            cleaned_lines.append(line_str)
+
+    if not cleaned_lines:
+        return ""
+
+    # 2. If no track header was present, prepend a safe, clean header
+    if not has_track_header:
+        base_name = os.path.splitext(file_name)[0]
+        safe_name = sanitize_track_name(base_name)
+        header = f'track name="{safe_name}" description="{file_name}" visibility=full'
+        cleaned_lines.insert(0, header)
+
+    return "\n".join(cleaned_lines)
+
+
 def load_combined_bed_data(exe_dir):
-    """Scans folder for .bed files and prepares combined track data."""
+    """Scans folder for .bed files and prepares clean, combined track data."""
     bed_files = sorted([f for f in os.listdir(exe_dir) if f.lower().endswith(".bed")])
     if not bed_files:
         return None, None
 
-    combined_tracks = []
+    processed_tracks = []
     for file_name in bed_files:
         full_path = os.path.join(exe_dir, file_name)
-        track_name = os.path.splitext(file_name)[0]
-        header = f'track name="{track_name}" description="{file_name}" visibility=full\n'
+        cleaned_track = process_bed_file(full_path, file_name)
+        if cleaned_track:
+            processed_tracks.append(cleaned_track)
 
-        try:
-            with open(full_path, "r", encoding="utf-8", errors="ignore") as f:
-                content = f.read().strip()
-                if content.startswith("track "):
-                    combined_tracks.append(content)
-                else:
-                    combined_tracks.append(header + content)
-        except Exception as e:
-            print(f"⚠️ Warning: Could not read {file_name}: {e}")
+    if not processed_tracks:
+        return None, None
 
-    return bed_files, "\n\n".join(combined_tracks)
+    # Separate each track block with two clean newlines
+    combined_payload = "\n\n".join(processed_tracks) + "\n"
+    return bed_files, combined_payload
 
 
 class CORSRequestHandler(BaseHTTPRequestHandler):
@@ -49,14 +97,15 @@ class CORSRequestHandler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "X-Requested-With, Content-Type")
+        self.send_header(
+            "Access-Control-Allow-Headers", "X-Requested-With, Content-Type"
+        )
         self.end_headers()
 
     def do_GET(self):
         if self.path == "/data":
             encoded_data = self.combined_data.encode("utf-8")
             self.send_response(200)
-            # Critical headers allowing browser fetch from genome.ucsc.edu -> 127.0.0.1
             self.send_header("Access-Control-Allow-Origin", "*")
             self.send_header("Content-Type", "text/plain; charset=utf-8")
             self.send_header("Content-Length", str(len(encoded_data)))
@@ -74,18 +123,18 @@ class CORSRequestHandler(BaseHTTPRequestHandler):
 def main():
     exe_dir = get_exe_directory()
     print("--------------------------------------------------")
-    print("🧬 UCSC Local Track Server")
+    print("🧬 UCSC Multi-Track Local Server (Sanitized)")
     print("--------------------------------------------------\n")
 
     bed_files, combined_data = load_combined_bed_data(exe_dir)
 
-    if not bed_files:
-        print(f"❌ Error: No .bed files found in:\n   {exe_dir}")
+    if not bed_files or not combined_data:
+        print(f"❌ Error: No valid .bed files found in:\n   {exe_dir}")
         input("\nPress Enter to exit...")
         sys.exit(1)
 
     print(f"📂 Folder: {exe_dir}")
-    print(f"📦 Found {len(bed_files)} BED file(s):")
+    print(f"📦 Found and sanitized {len(bed_files)} BED file(s):")
     for f in bed_files:
         print(f"   • {f}")
 
@@ -95,7 +144,9 @@ def main():
     try:
         server = HTTPServer(("127.0.0.1", PORT), CORSRequestHandler)
     except OSError:
-        print(f"\n⚠️ Port {PORT} is busy! Please run `taskkill /F /IM python.exe` or kill old instances.")
+        print(
+            f"\n⚠️ Port {PORT} is busy! Please run `taskkill /F /IM python.exe` or close old instances."
+        )
         input("\nPress Enter to exit...")
         sys.exit(1)
 
@@ -109,11 +160,12 @@ def main():
     print("\n--------------------------------------------------")
     print("👉 INSTRUCTIONS:")
     print("1. Wait for UCSC to load in your browser.")
-    print("2. Click your '🧬 Upload BED' bookmark.")
-    print("3. Your tracks will fill the box and submit automatically!")
+    print("2. Click your '🧬 Upload Local BED' bookmark.")
+    print("3. All sanitized tracks will fill and submit cleanly!")
     print("--------------------------------------------------")
     print("\nPress Enter here when finished to close the server...")
     input()
+
 
 if __name__ == "__main__":
     main()

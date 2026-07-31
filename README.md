@@ -31,7 +31,7 @@ Add a bookmark to your Chrome browser:
 Name: Upload BED
 URL:
 ```sh
-javascript:(async()=>{try{let r=await fetch('http://127.0.0.1:8585/data');if(!r.ok)throw new Error('Local server not running');let txt=await r.text();let a=document.querySelector('textarea[name="hgct_customText"]');if(a){a.value=txt;let b=document.querySelector('input[name="hgct_doSubmit"]');if(b)b.click();else document.forms[0].submit();}else{alert("Please navigate to the UCSC Custom Track page first.");}}catch(e){alert("Error fetching local BED data: "+e.message);}})();
+javascript:(async()=>{try{let r=await fetch('http://127.0.0.1:8585/data');if(!r.ok)throw new Error('Local server not running');let txt=await r.text();let a=document.querySelector('textarea[name="hgct_customText"]');if(a){a.value=txt;let f=a.closest('form');if(f){let hidden=document.createElement('input');hidden.type='hidden';hidden.name='hgct_doSubmit';hidden.value='Submit';f.appendChild(hidden);f.submit();}}else{alert("Navigate to the UCSC Custom Track page first.");}}catch(e){alert("Error fetching local BED data: "+e.message);}})();
 ```
 
 ## Development
